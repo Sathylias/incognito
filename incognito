@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+export() {
+  local var="${1:-}"
+  local kind="${2:-}"
+
+  if [ ! "$kind" = "nonprivate" ]; then
+    builtin export _EXPORT_VAR="${_EXPORT_VAR:-};$(echo "$var" | awk -F= '{print $1}')"
+  fi
+
+  builtin export "$var"
+}
+
+deactivate() {
+  if [ -n "${_OLD_PS1:-}" ]; then
+    export PS1="${_OLD_PS1}" nonprivate
+    unset _OLD_PS1
+  fi
+
+  set -o history
+  clear
+
+  if [ ! "${1:-}" = "init" ]; then
+    unset -f deactivate
+    unset -f export
+    
+    if [ -n "${_EXPORT_VAR}" ]; then
+
+      IFS=';'
+      read -ra item <<< "${_EXPORT_VAR}"
+
+      for var in "${item[@]}"; do
+        unset "$var"
+      done
+
+      unset -v _EXPORT_VAR
+      unset IFS
+    fi
+  fi
+}
+
+if [ "${1:-}" = "help" ]; then
+  cat << EOF
+Description: Incognito SHELL that disables history and tracks exported variables, which are unset upon deactivation
+Usage: source incognito [OPTIONS]...
+
+OPTIONS
+
+  help => Print this help message
+EOF
+else
+  deactivate init
+
+  set +o history
+  export _OLD_PS1=$PS1 nonprivate
+  export PS1="(Incognito) $PS1" nonprivate
+fi
